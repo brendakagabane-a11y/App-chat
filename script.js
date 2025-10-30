@@ -1,18 +1,24 @@
-// Appwrite configuration - USING YOUR ACTUAL VALUES
+// Appwrite configuration
 const APPWRITE_ENDPOINT = 'https://fra.cloud.appwrite.io/v1';
 const APPWRITE_PROJECT_ID = '6902fd1900276a875b41';
 
-// Initialize Appwrite
+// Initialize Appwrite SDK first
+console.log('Initializing Appwrite...');
+
+// Import Appwrite (make sure you're using the correct CDN)
+// Use this in your HTML: <script src="https://cdn.jsdelivr.net/npm/appwrite@10.0.0/dist/iife/sdk.min.js"></script>
+
 const client = new Appwrite.Client();
 client
     .setEndpoint(APPWRITE_ENDPOINT)
     .setProject(APPWRITE_PROJECT_ID);
 
+// Initialize services AFTER client is configured
 const account = new Appwrite.Account(client);
-const database = new Appwrite.Databases(client);
+const database = new Appwrite.Databases(client, '690300cc002b6ab61b0e');
 const storage = new Appwrite.Storage(client);
 
-// Global variables with YOUR ACTUAL IDs
+// Global variables
 let currentUser = null;
 let selectedImage = null;
 const DATABASE_ID = '690300cc002b6ab61b0e';
@@ -28,14 +34,16 @@ const currentUserSpan = document.getElementById('current-user');
 
 // Check if user is already logged in
 async function init() {
+    console.log('Initializing app...');
     try {
         currentUser = await account.get();
+        console.log('User already logged in:', currentUser.name);
         showChat();
         loadMessages();
         setupRealtime();
     } catch (error) {
+        console.log('No active session, showing login form');
         showAuth();
-        console.log('Not logged in, showing auth form');
     }
 }
 
@@ -51,9 +59,14 @@ async function register() {
     }
 
     try {
-        await account.create('unique()', email, password, name);
+        console.log('Registering user:', email);
+        const user = await account.create('unique()', email, password, name);
+        console.log('User created:', user);
+        
+        // Now login after successful registration
         await loginUser(email, password);
     } catch (error) {
+        console.error('Registration error:', error);
         alert('Registration failed: ' + error.message);
     }
 }
@@ -72,12 +85,18 @@ async function login() {
 
 async function loginUser(email, password) {
     try {
-        await account.createEmailSession(email, password);
+        console.log('Logging in user:', email);
+        const session = await account.createEmailSession(email, password);
+        console.log('Session created:', session);
+        
         currentUser = await account.get();
+        console.log('Current user:', currentUser);
+        
         showChat();
         loadMessages();
         setupRealtime();
     } catch (error) {
+        console.error('Login error:', error);
         alert('Login failed: ' + error.message);
     }
 }
@@ -95,16 +114,22 @@ async function logout() {
 
 // UI Management
 function showAuth() {
-    authSection.style.display = 'flex';
-    chatSection.style.display = 'none';
+    if (authSection) authSection.style.display = 'flex';
+    if (chatSection) chatSection.style.display = 'none';
+    // Clear form fields
+    document.getElementById('register-name').value = '';
+    document.getElementById('register-email').value = '';
+    document.getElementById('register-password').value = '';
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-password').value = '';
 }
 
 function showChat() {
-    authSection.style.display = 'none';
-    chatSection.style.display = 'flex';
-    currentUserSpan.textContent = currentUser.name;
-    // Clear any previous messages when showing chat
-    clearMessages();
+    if (authSection) authSection.style.display = 'none';
+    if (chatSection) chatSection.style.display = 'flex';
+    if (currentUserSpan && currentUser) {
+        currentUserSpan.textContent = currentUser.name;
+    }
 }
 
 function showRegister() {
@@ -138,17 +163,21 @@ async function sendMessage() {
 
         // Create message document
         console.log('Creating message document...');
+        const messageData = {
+            userId: currentUser.$id,
+            username: currentUser.name,
+            message: messageText,
+            imageId: imageId,
+            timestamp: new Date().toISOString()
+        };
+        
+        console.log('Message data:', messageData);
+        
         await database.createDocument(
             DATABASE_ID,
             MESSAGES_COLLECTION_ID,
             'unique()',
-            {
-                userId: currentUser.$id,
-                username: currentUser.name,
-                message: messageText,
-                imageId: imageId,
-                timestamp: new Date().toISOString()
-            }
+            messageData
         );
 
         console.log('Message sent successfully');
@@ -235,7 +264,7 @@ async function loadMessages() {
     } catch (error) {
         console.error('Error loading messages:', error);
         if (error.message.includes('Collection not found')) {
-            alert('Messages collection not found. Please check if the collection exists in Appwrite.');
+            console.log('Messages collection might not exist yet');
         }
     }
 }
@@ -273,20 +302,24 @@ async function displayMessage(messageDoc) {
 }
 
 function clearMessages() {
-    messagesContainer.innerHTML = '';
+    if (messagesContainer) {
+        messagesContainer.innerHTML = '';
+    }
 }
 
 function scrollToBottom() {
-    setTimeout(() => {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }, 100);
+    if (messagesContainer) {
+        setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, 100);
+    }
 }
 
 // Real-time Updates
 function setupRealtime() {
     try {
         console.log('Setting up real-time updates...');
-        const unsubscribe = client.subscribe(
+        client.subscribe(
             `databases.${DATABASE_ID}.collections.${MESSAGES_COLLECTION_ID}.documents`,
             response => {
                 console.log('Realtime update:', response);
@@ -321,5 +354,18 @@ function viewImage(imageUrl) {
 
 // Initialize the app when page loads
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing app...');
     init();
 });
+
+// Make functions globally available for HTML onclick attributes
+window.login = login;
+window.register = register;
+window.logout = logout;
+window.sendMessage = sendMessage;
+window.handleKeyPress = handleKeyPress;
+window.handleImageUpload = handleImageUpload;
+window.cancelImageUpload = cancelImageUpload;
+window.viewImage = viewImage;
+window.showRegister = showRegister;
+window.showLogin = showLogin;
