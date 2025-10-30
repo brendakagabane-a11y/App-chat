@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appwrite Chat</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@10.0.0"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Auth Section -->
+        <div id="auth-section" class="auth-section">
+            <div class="auth-form">
+                <h2>Join the Chat</h2>
+                <div id="login-form">
+                    <input type="email" id="login-email" placeholder="Email" required>
+                    <input type="password" id="login-password" placeholder="Password" required>
+                    <button onclick="login()">Login</button>
+                    <p>Don't have an account? <a href="#" onclick="showRegister()">Register</a></p>
+                </div>
+                <div id="register-form" style="display: none;">
+                    <input type="text" id="register-name" placeholder="Username" required>
+                    <input type="email" id="register-email" placeholder="Email" required>
+                    <input type="password" id="register-password" placeholder="Password" required>
+                    <button onclick="register()">Register</button>
+                    <p>Already have an account? <a href="#" onclick="showLogin()">Login</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Section -->
+        <div id="chat-section" class="chat-section" style="display: none;">
+            <div class="chat-header">
+                <h2>Chat Room</h2>
+                <div class="user-info">
+                    <span id="current-user">User</span>
+                    <button onclick="logout()">Logout</button>
+                </div>
+            </div>
+
+            <div class="messages-container" id="messages-container">
+                <!-- Messages will appear here -->
+            </div>
+
+            <div class="message-input">
+                <input type="text" id="message-input" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+                
+                <div class="file-upload">
+                    <label for="image-upload" class="upload-btn">
+                        📎 Image
+                    </label>
+                    <input type="file" id="image-upload" accept="image/*" style="display: none;" onchange="handleImageUpload(this.files[0])">
+                </div>
+                
+                <button onclick="sendMessage()">Send</button>
+            </div>
+
+            <!-- Preview for image before sending -->
+            <div id="image-preview" class="image-preview" style="display: none;">
+                <img id="preview-img" src="" alt="Preview">
+                <button onclick="cancelImageUpload()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
