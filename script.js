@@ -1,4 +1,4 @@
-// Appwrite Chat with CORS handling
+// Appwrite Chat - Complete Fix
 console.log("🚀 Script loaded!");
 
 class AppwriteChat {
@@ -19,36 +19,31 @@ class AppwriteChat {
         console.log("🔄 Initializing Appwrite Chat...");
         
         try {
-            // Check if Appwrite SDK is available
             if (typeof Appwrite === 'undefined') {
-                throw new Error('Appwrite SDK not loaded. Check the CDN.');
+                throw new Error('Appwrite SDK not loaded');
             }
 
-            // Initialize Appwrite
             this.client = new Appwrite.Client();
             this.client
                 .setEndpoint(this.config.endpoint)
                 .setProject(this.config.projectId);
 
-            // Initialize services
             this.account = new Appwrite.Account(this.client);
             this.database = new Appwrite.Databases(this.client);
             this.storage = new Appwrite.Storage(this.client);
 
-            console.log("✅ Appwrite initialized successfully");
+            console.log("✅ Appwrite initialized");
             
             this.setupEventListeners();
             await this.checkCurrentUser();
             
         } catch (error) {
             console.error("❌ Initialization failed:", error);
-            this.showError('App initialization failed: ' + error.message);
+            this.showMessage('App initialization failed: ' + error.message);
         }
     }
 
     setupEventListeners() {
-        console.log("🔗 Setting up event listeners...");
-        
         // Auth buttons
         document.getElementById('login-btn').addEventListener('click', () => this.handleLogin());
         document.getElementById('register-btn').addEventListener('click', () => this.handleRegister());
@@ -70,58 +65,46 @@ class AppwriteChat {
         document.getElementById('message-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.sendMessage();
         });
-        
-        console.log("✅ Event listeners setup complete!");
     }
 
     async checkCurrentUser() {
         try {
-            console.log("🔍 Checking current user session...");
             this.currentUser = await this.account.get();
-            console.log("✅ User session found:", this.currentUser.email);
+            console.log("✅ User found:", this.currentUser.email);
             this.showChatInterface();
             this.loadMessages();
         } catch (error) {
-            console.log("ℹ️ No active session:", error.message);
+            console.log("ℹ️ No active session");
             this.showAuthInterface();
         }
     }
 
     async handleRegister() {
-        console.log("📝 Registration started...");
-        
         const name = document.getElementById('register-name').value;
         const email = document.getElementById('register-email').value;
         const password = document.getElementById('register-password').value;
 
-        if (!this.validateForm(name, email, password)) {
+        if (!name || !email || !password) {
+            this.showMessage('Please fill all fields');
             return;
         }
 
         try {
-            this.showLoading('Registering...');
-            console.log("Creating user account...");
-            
-            const user = await this.account.create('unique()', email, password, name);
-            console.log("✅ User created:", user);
-            
+            console.log("Creating user:", email);
+            await this.account.create('unique()', email, password, name);
             await this.handleUserLogin(email, password);
-            
         } catch (error) {
-            console.error("❌ Registration failed:", error);
-            this.showError('Registration failed: ' + this.getErrorMessage(error));
-        } finally {
-            this.hideLoading();
+            console.error("Registration failed:", error);
+            this.showMessage('Registration failed: ' + this.getErrorMessage(error));
         }
     }
 
     async handleLogin() {
-        console.log("🔐 Login started...");
-        
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
         
-        if (!this.validateForm(null, email, password)) {
+        if (!email || !password) {
+            this.showMessage('Please fill all fields');
             return;
         }
         
@@ -130,24 +113,139 @@ class AppwriteChat {
 
     async handleUserLogin(email, password) {
         try {
-            this.showLoading('Logging in...');
-            console.log("Creating session...");
-            
-            const session = await this.account.createEmailSession(email, password);
-            console.log("✅ Session created:", session);
-            
+            console.log("Logging in:", email);
+            await this.account.createEmailSession(email, password);
             this.currentUser = await this.account.get();
-            console.log("✅ User data loaded:", this.currentUser);
-            
             this.showChatInterface();
             this.loadMessages();
+        } catch (error) {
+            console.error("Login failed:", error);
+            this.showMessage('Login failed: ' + this.getErrorMessage(error));
+        }
+    }
+
+    getErrorMessage(error) {
+        if (error.message.includes('Failed to fetch')) {
+            return 'Cannot connect to server. Check: 1) Your domain is whitelisted in Appwrite, 2) Internet connection';
+        }
+        if (error.message.includes('User already exists')) {
+            return 'User already exists. Try logging in instead.';
+        }
+        return error.message;
+    }
+
+    showAuthInterface() {
+        document.getElementById('auth-section').style.display = 'flex';
+        document.getElementById('chat-section').style.display = 'none';
+    }
+
+    showChatInterface() {
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('chat-section').style.display = 'flex';
+        document.getElementById('current-user').textContent = this.currentUser.name;
+    }
+
+    showRegisterForm() {
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('register-form').style.display = 'block';
+    }
+
+    showLoginForm() {
+        document.getElementById('register-form').style.display = 'none';
+        document.getElementById('login-form').style.display = 'block';
+    }
+
+    showMessage(message) {
+        alert(message);
+    }
+
+    async sendMessage() {
+        const messageInput = document.getElementById('message-input');
+        const messageText = messageInput.value.trim();
+        
+        if (!messageText) {
+            this.showMessage('Please enter a message');
+            return;
+        }
+
+        try {
+            await this.database.createDocument(
+                this.config.databaseId,
+                this.config.collectionId,
+                'unique()',
+                {
+                    userId: this.currentUser.$id,
+                    username: this.currentUser.name,
+                    message: messageText,
+                    imageId: null,
+                    timestamp: new Date().toISOString()
+                }
+            );
+
+            messageInput.value = '';
+        } catch (error) {
+            console.error("Error sending message:", error);
+            this.showMessage('Failed to send message: ' + error.message);
+        }
+    }
+
+    async loadMessages() {
+        try {
+            const response = await this.database.listDocuments(
+                this.config.databaseId, 
+                this.config.collectionId
+            );
+            
+            this.clearMessages();
+            
+            const messages = response.documents.sort((a, b) => 
+                new Date(a.timestamp) - new Date(b.timestamp)
+            );
+            
+            for (const message of messages) {
+                this.displayMessage(message);
+            }
             
         } catch (error) {
-            console.error("❌ Login failed:", error);
-            this.showError('Login failed: ' + this.getErrorMessage(error));
-        } finally {
-            this.hideLoading();
+            console.error("Error loading messages:", error);
         }
+    }
+
+    displayMessage(messageDoc) {
+        const messageDiv = document.createElement('div');
+        const isOwnMessage = this.currentUser && messageDoc.userId === this.currentUser.$id;
+        
+        messageDiv.className = `message ${isOwnMessage ? 'own' : 'other'}`;
+        
+        const time = new Date(messageDoc.timestamp).toLocaleTimeString();
+        
+        messageDiv.innerHTML = `
+            <div class="message-header">
+                <strong>${this.escapeHtml(messageDoc.username)}</strong> • ${time}
+            </div>
+            <div class="message-text">${this.escapeHtml(messageDoc.message)}</div>
+        `;
+        
+        document.getElementById('messages-container').appendChild(messageDiv);
+        this.scrollToBottom();
+    }
+
+    clearMessages() {
+        document.getElementById('messages-container').innerHTML = '';
+    }
+
+    scrollToBottom() {
+        setTimeout(() => {
+            const container = document.getElementById('messages-container');
+            container.scrollTop = container.scrollHeight;
+        }, 100);
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     async handleLogout() {
@@ -160,43 +258,10 @@ class AppwriteChat {
             console.error("Logout failed:", error);
         }
     }
+}
 
-    validateForm(name, email, password) {
-        if (name && !name.trim()) {
-            this.showError('Please enter a username');
-            return false;
-        }
-        
-        if (!email || !email.includes('@')) {
-            this.showError('Please enter a valid email');
-            return false;
-        }
-        
-        if (!password || password.length < 6) {
-            this.showError('Password must be at least 6 characters');
-            return false;
-        }
-        
-        return true;
-    }
-
-    getErrorMessage(error) {
-        if (error.message.includes('Failed to fetch')) {
-            return 'Network error. Check your internet connection and CORS settings.';
-        }
-        if (error.message.includes('CORS')) {
-            return 'CORS error. Make sure your domain is whitelisted in Appwrite.';
-        }
-        if (error.message.includes('User already exists')) {
-            return 'User with this email already exists.';
-        }
-        if (error.message.includes('Invalid credentials')) {
-            return 'Invalid email or password.';
-        }
-        return error.message;
-    }
-
-    showAuthInterface() {
-        document.getElementById('auth-section').style.display = 'flex';
-        document.getElementById('chat-section').style.display = 'none';
-        this
+// Initialize the app
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("📄 DOM loaded, starting app...");
+    window.chatApp = new AppwriteChat();
+});
