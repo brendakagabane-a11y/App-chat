@@ -1,371 +1,340 @@
-// Appwrite configuration
-const APPWRITE_ENDPOINT = 'https://fra.cloud.appwrite.io/v1';
-const APPWRITE_PROJECT_ID = '6902fd1900276a875b41';
-
-// Initialize Appwrite SDK first
-console.log('Initializing Appwrite...');
-
-// Import Appwrite (make sure you're using the correct CDN)
-// Use this in your HTML: <script src="https://cdn.jsdelivr.net/npm/appwrite@10.0.0/dist/iife/sdk.min.js"></script>
-
-const client = new Appwrite.Client();
-client
-    .setEndpoint(APPWRITE_ENDPOINT)
-    .setProject(APPWRITE_PROJECT_ID);
-
-// Initialize services AFTER client is configured
-const account = new Appwrite.Account(client);
-const database = new Appwrite.Databases(client, '690300cc002b6ab61b0e');
-const storage = new Appwrite.Storage(client);
-
-// Global variables
-let currentUser = null;
-let selectedImage = null;
-const DATABASE_ID = '690300cc002b6ab61b0e';
-const MESSAGES_COLLECTION_ID = 'messages';
-const STORAGE_BUCKET_ID = '6903015700098d0fcd72';
-
-// DOM Elements
-const authSection = document.getElementById('auth-section');
-const chatSection = document.getElementById('chat-section');
-const messagesContainer = document.getElementById('messages-container');
-const messageInput = document.getElementById('message-input');
-const currentUserSpan = document.getElementById('current-user');
-
-// Check if user is already logged in
-async function init() {
-    console.log('Initializing app...');
-    try {
-        currentUser = await account.get();
-        console.log('User already logged in:', currentUser.name);
-        showChat();
-        loadMessages();
-        setupRealtime();
-    } catch (error) {
-        console.log('No active session, showing login form');
-        showAuth();
-    }
-}
-
-// Authentication Functions
-async function register() {
-    const name = document.getElementById('register-name').value;
-    const email = document.getElementById('register-email').value;
-    const password = document.getElementById('register-password').value;
-
-    if (!name || !email || !password) {
-        alert('Please fill all fields');
-        return;
-    }
-
-    try {
-        console.log('Registering user:', email);
-        const user = await account.create('unique()', email, password, name);
-        console.log('User created:', user);
+// Simple Appwrite Chat App
+class AppwriteChat {
+    constructor() {
+        this.APPWRITE_ENDPOINT = 'https://fra.cloud.appwrite.io/v1';
+        this.APPWRITE_PROJECT_ID = '6902fd1900276a875b41';
+        this.DATABASE_ID = '690300cc002b6ab61b0e';
+        this.MESSAGES_COLLECTION_ID = 'messages';
+        this.STORAGE_BUCKET_ID = '6903015700098d0fcd72';
         
-        // Now login after successful registration
-        await loginUser(email, password);
-    } catch (error) {
-        console.error('Registration error:', error);
-        alert('Registration failed: ' + error.message);
-    }
-}
-
-async function login() {
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-    
-    if (!email || !password) {
-        alert('Please fill all fields');
-        return;
-    }
-    
-    await loginUser(email, password);
-}
-
-async function loginUser(email, password) {
-    try {
-        console.log('Logging in user:', email);
-        const session = await account.createEmailSession(email, password);
-        console.log('Session created:', session);
+        this.currentUser = null;
+        this.selectedImage = null;
         
-        currentUser = await account.get();
-        console.log('Current user:', currentUser);
+        this.init();
+    }
+
+    async init() {
+        console.log('🚀 Initializing Appwrite Chat...');
         
-        showChat();
-        loadMessages();
-        setupRealtime();
-    } catch (error) {
-        console.error('Login error:', error);
-        alert('Login failed: ' + error.message);
-    }
-}
+        try {
+            // Initialize Appwrite client
+            this.client = new Appwrite.Client();
+            this.client
+                .setEndpoint(this.APPWRITE_ENDPOINT)
+                .setProject(this.APPWRITE_PROJECT_ID);
 
-async function logout() {
-    try {
-        await account.deleteSession('current');
-        currentUser = null;
-        showAuth();
-        clearMessages();
-    } catch (error) {
-        console.error('Logout failed:', error);
-    }
-}
+            // Initialize services
+            this.account = new Appwrite.Account(this.client);
+            this.database = new Appwrite.Databases(this.client);
+            this.storage = new Appwrite.Storage(this.client);
 
-// UI Management
-function showAuth() {
-    if (authSection) authSection.style.display = 'flex';
-    if (chatSection) chatSection.style.display = 'none';
-    // Clear form fields
-    document.getElementById('register-name').value = '';
-    document.getElementById('register-email').value = '';
-    document.getElementById('register-password').value = '';
-    document.getElementById('login-email').value = '';
-    document.getElementById('login-password').value = '';
-}
-
-function showChat() {
-    if (authSection) authSection.style.display = 'none';
-    if (chatSection) chatSection.style.display = 'flex';
-    if (currentUserSpan && currentUser) {
-        currentUserSpan.textContent = currentUser.name;
-    }
-}
-
-function showRegister() {
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('register-form').style.display = 'block';
-}
-
-function showLogin() {
-    document.getElementById('register-form').style.display = 'none';
-    document.getElementById('login-form').style.display = 'block';
-}
-
-// Message Functions
-async function sendMessage() {
-    const messageText = messageInput.value.trim();
-    
-    if (!messageText && !selectedImage) {
-        alert('Please enter a message or select an image');
-        return;
+            console.log('✅ Appwrite initialized successfully');
+            
+            // Setup event listeners
+            this.setupEventListeners();
+            
+            // Check if user is already logged in
+            await this.checkAuthStatus();
+            
+        } catch (error) {
+            console.error('❌ Appwrite initialization failed:', error);
+            this.showAuth();
+        }
     }
 
-    try {
-        let imageId = null;
+    setupEventListeners() {
+        // Auth buttons
+        document.getElementById('login-btn').addEventListener('click', () => this.login());
+        document.getElementById('register-btn').addEventListener('click', () => this.register());
+        document.getElementById('logout-btn').addEventListener('click', () => this.logout());
         
-        // Upload image if selected
-        if (selectedImage) {
-            console.log('Uploading image...');
-            imageId = await uploadImage(selectedImage);
-            console.log('Image uploaded with ID:', imageId);
+        // Navigation
+        document.getElementById('show-register').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showRegister();
+        });
+        document.getElementById('show-login').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showLogin();
+        });
+        
+        // Chat functionality
+        document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
+        document.getElementById('message-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.sendMessage();
+        });
+        
+        // Image upload
+        document.getElementById('image-upload').addEventListener('change', (e) => {
+            this.handleImageUpload(e.target.files[0]);
+        });
+        document.getElementById('cancel-upload').addEventListener('click', () => {
+            this.cancelImageUpload();
+        });
+    }
+
+    async checkAuthStatus() {
+        try {
+            this.currentUser = await this.account.get();
+            console.log('✅ User already logged in:', this.currentUser.name);
+            this.showChat();
+            this.loadMessages();
+            this.setupRealtime();
+        } catch (error) {
+            console.log('ℹ️ No active session');
+            this.showAuth();
+        }
+    }
+
+    async register() {
+        const name = document.getElementById('register-name').value;
+        const email = document.getElementById('register-email').value;
+        const password = document.getElementById('register-password').value;
+
+        if (!name || !email || !password) {
+            alert('Please fill all fields');
+            return;
         }
 
-        // Create message document
-        console.log('Creating message document...');
-        const messageData = {
-            userId: currentUser.$id,
-            username: currentUser.name,
-            message: messageText,
-            imageId: imageId,
-            timestamp: new Date().toISOString()
-        };
-        
-        console.log('Message data:', messageData);
-        
-        await database.createDocument(
-            DATABASE_ID,
-            MESSAGES_COLLECTION_ID,
-            'unique()',
-            messageData
-        );
-
-        console.log('Message sent successfully');
-        // Clear inputs
-        messageInput.value = '';
-        cancelImageUpload();
-        
-    } catch (error) {
-        console.error('Error sending message:', error);
-        alert('Failed to send message: ' + error.message);
+        try {
+            console.log('📝 Registering user:', email);
+            await this.account.create('unique()', email, password, name);
+            console.log('✅ User registered successfully');
+            
+            // Login after registration
+            await this.loginUser(email, password);
+        } catch (error) {
+            console.error('❌ Registration failed:', error);
+            alert('Registration failed: ' + error.message);
+        }
     }
-}
 
-async function uploadImage(file) {
-    try {
-        const result = await storage.createFile(
-            STORAGE_BUCKET_ID,
+    async login() {
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        
+        if (!email || !password) {
+            alert('Please fill all fields');
+            return;
+        }
+        
+        await this.loginUser(email, password);
+    }
+
+    async loginUser(email, password) {
+        try {
+            console.log('🔐 Logging in user:', email);
+            await this.account.createEmailSession(email, password);
+            this.currentUser = await this.account.get();
+            console.log('✅ Login successful:', this.currentUser.name);
+            
+            this.showChat();
+            this.loadMessages();
+            this.setupRealtime();
+        } catch (error) {
+            console.error('❌ Login failed:', error);
+            alert('Login failed: ' + error.message);
+        }
+    }
+
+    async logout() {
+        try {
+            await this.account.deleteSession('current');
+            this.currentUser = null;
+            this.showAuth();
+            this.clearMessages();
+        } catch (error) {
+            console.error('Logout failed:', error);
+        }
+    }
+
+    showAuth() {
+        document.getElementById('auth-section').style.display = 'flex';
+        document.getElementById('chat-section').style.display = 'none';
+    }
+
+    showChat() {
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('chat-section').style.display = 'flex';
+        document.getElementById('current-user').textContent = this.currentUser.name;
+    }
+
+    showRegister() {
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('register-form').style.display = 'block';
+    }
+
+    showLogin() {
+        document.getElementById('register-form').style.display = 'none';
+        document.getElementById('login-form').style.display = 'block';
+    }
+
+    async sendMessage() {
+        const messageInput = document.getElementById('message-input');
+        const messageText = messageInput.value.trim();
+        
+        if (!messageText && !this.selectedImage) {
+            alert('Please enter a message or select an image');
+            return;
+        }
+
+        try {
+            let imageId = null;
+            
+            if (this.selectedImage) {
+                console.log('🖼️ Uploading image...');
+                imageId = await this.uploadImage(this.selectedImage);
+            }
+
+            console.log('💬 Sending message...');
+            await this.database.createDocument(
+                this.DATABASE_ID,
+                this.MESSAGES_COLLECTION_ID,
+                'unique()',
+                {
+                    userId: this.currentUser.$id,
+                    username: this.currentUser.name,
+                    message: messageText,
+                    imageId: imageId,
+                    timestamp: new Date().toISOString()
+                }
+            );
+
+            messageInput.value = '';
+            this.cancelImageUpload();
+            
+        } catch (error) {
+            console.error('❌ Error sending message:', error);
+            alert('Failed to send message: ' + error.message);
+        }
+    }
+
+    async uploadImage(file) {
+        const result = await this.storage.createFile(
+            this.STORAGE_BUCKET_ID,
             'unique()',
             file
         );
         return result.$id;
-    } catch (error) {
-        console.error('Error uploading image:', error);
-        throw error;
     }
-}
 
-async function getImageUrl(fileId) {
-    try {
-        return storage.getFilePreview(STORAGE_BUCKET_ID, fileId);
-    } catch (error) {
-        console.error('Error getting image URL:', error);
-        return null;
+    async getImageUrl(fileId) {
+        return this.storage.getFilePreview(this.STORAGE_BUCKET_ID, fileId);
     }
-}
 
-// Image Handling
-function handleImageUpload(file) {
-    if (file && file.type.startsWith('image/')) {
-        // Check file size (limit to 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            alert('Image size should be less than 5MB');
-            return;
-        }
-        
-        selectedImage = file;
-        
-        // Show preview
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('preview-img').src = e.target.result;
-            document.getElementById('image-preview').style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
-    } else {
-        alert('Please select a valid image file');
-    }
-}
-
-function cancelImageUpload() {
-    selectedImage = null;
-    document.getElementById('image-preview').style.display = 'none';
-    document.getElementById('image-upload').value = '';
-}
-
-// Message Display
-async function loadMessages() {
-    try {
-        console.log('Loading messages...');
-        const response = await database.listDocuments(DATABASE_ID, MESSAGES_COLLECTION_ID);
-        console.log('Messages loaded:', response.documents.length);
-        
-        clearMessages();
-        
-        // Sort messages by timestamp (oldest first)
-        const sortedMessages = response.documents.sort((a, b) => 
-            new Date(a.timestamp) - new Date(b.timestamp)
-        );
-        
-        for (const message of sortedMessages) {
-            await displayMessage(message);
-        }
-        scrollToBottom();
-    } catch (error) {
-        console.error('Error loading messages:', error);
-        if (error.message.includes('Collection not found')) {
-            console.log('Messages collection might not exist yet');
-        }
-    }
-}
-
-async function displayMessage(messageDoc) {
-    const messageDiv = document.createElement('div');
-    const isOwnMessage = currentUser && messageDoc.userId === currentUser.$id;
-    
-    messageDiv.className = `message ${isOwnMessage ? 'own' : 'other'}`;
-    
-    let imageHtml = '';
-    if (messageDoc.imageId) {
-        try {
-            const imageUrl = await getImageUrl(messageDoc.imageId);
-            if (imageUrl) {
-                imageHtml = `<img src="${imageUrl}" alt="Shared image" class="message-image" onclick="viewImage('${imageUrl}')">`;
+    handleImageUpload(file) {
+        if (file && file.type.startsWith('image/')) {
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Image size should be less than 5MB');
+                return;
             }
-        } catch (error) {
-            console.error('Error loading image:', error);
+            
+            this.selectedImage = file;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('preview-img').src = e.target.result;
+                document.getElementById('image-preview').style.display = 'flex';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            alert('Please select a valid image file');
         }
     }
-    
-    const time = new Date(messageDoc.timestamp).toLocaleTimeString();
-    
-    messageDiv.innerHTML = `
-        <div class="message-header">
-            <strong>${escapeHtml(messageDoc.username)}</strong> • ${time}
-        </div>
-        ${messageDoc.message ? `<div class="message-text">${escapeHtml(messageDoc.message)}</div>` : ''}
-        ${imageHtml}
-    `;
-    
-    messagesContainer.appendChild(messageDiv);
-    scrollToBottom();
-}
 
-function clearMessages() {
-    if (messagesContainer) {
-        messagesContainer.innerHTML = '';
+    cancelImageUpload() {
+        this.selectedImage = null;
+        document.getElementById('image-preview').style.display = 'none';
+        document.getElementById('image-upload').value = '';
     }
-}
 
-function scrollToBottom() {
-    if (messagesContainer) {
+    async loadMessages() {
+        try {
+            const response = await this.database.listDocuments(this.DATABASE_ID, this.MESSAGES_COLLECTION_ID);
+            this.clearMessages();
+            
+            const sortedMessages = response.documents.sort((a, b) => 
+                new Date(a.timestamp) - new Date(b.timestamp)
+            );
+            
+            for (const message of sortedMessages) {
+                await this.displayMessage(message);
+            }
+            this.scrollToBottom();
+        } catch (error) {
+            console.error('Error loading messages:', error);
+        }
+    }
+
+    async displayMessage(messageDoc) {
+        const messageDiv = document.createElement('div');
+        const isOwnMessage = this.currentUser && messageDoc.userId === this.currentUser.$id;
+        
+        messageDiv.className = `message ${isOwnMessage ? 'own' : 'other'}`;
+        
+        let imageHtml = '';
+        if (messageDoc.imageId) {
+            try {
+                const imageUrl = await this.getImageUrl(messageDoc.imageId);
+                if (imageUrl) {
+                    imageHtml = `<img src="${imageUrl}" alt="Shared image" class="message-image" onclick="window.open('${imageUrl}', '_blank')">`;
+                }
+            } catch (error) {
+                console.error('Error loading image:', error);
+            }
+        }
+        
+        const time = new Date(messageDoc.timestamp).toLocaleTimeString();
+        
+        messageDiv.innerHTML = `
+            <div class="message-header">
+                <strong>${this.escapeHtml(messageDoc.username)}</strong> • ${time}
+            </div>
+            ${messageDoc.message ? `<div class="message-text">${this.escapeHtml(messageDoc.message)}</div>` : ''}
+            ${imageHtml}
+        `;
+        
+        document.getElementById('messages-container').appendChild(messageDiv);
+        this.scrollToBottom();
+    }
+
+    clearMessages() {
+        document.getElementById('messages-container').innerHTML = '';
+    }
+
+    scrollToBottom() {
         setTimeout(() => {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            const container = document.getElementById('messages-container');
+            container.scrollTop = container.scrollHeight;
         }, 100);
     }
-}
 
-// Real-time Updates
-function setupRealtime() {
-    try {
-        console.log('Setting up real-time updates...');
-        client.subscribe(
-            `databases.${DATABASE_ID}.collections.${MESSAGES_COLLECTION_ID}.documents`,
-            response => {
-                console.log('Realtime update:', response);
-                if (response.event === 'database.documents.create') {
-                    displayMessage(response.payload);
+    setupRealtime() {
+        try {
+            this.client.subscribe(
+                `databases.${this.DATABASE_ID}.collections.${this.MESSAGES_COLLECTION_ID}.documents`,
+                (response) => {
+                    if (response.event === 'database.documents.create') {
+                        this.displayMessage(response.payload);
+                    }
                 }
-            }
-        );
-        console.log('Realtime updates enabled');
-    } catch (error) {
-        console.error('Error setting up realtime:', error);
+            );
+            console.log('✅ Realtime updates enabled');
+        } catch (error) {
+            console.error('❌ Realtime setup failed:', error);
+        }
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 
-// Utility Functions
-function handleKeyPress(event) {
-    if (event.key === 'Enter') {
-        sendMessage();
-    }
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function viewImage(imageUrl) {
-    window.open(imageUrl, '_blank');
-}
-
-// Initialize the app when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing app...');
-    init();
+// Initialize the app when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOM loaded, starting app...');
+    window.chatApp = new AppwriteChat();
 });
-
-// Make functions globally available for HTML onclick attributes
-window.login = login;
-window.register = register;
-window.logout = logout;
-window.sendMessage = sendMessage;
-window.handleKeyPress = handleKeyPress;
-window.handleImageUpload = handleImageUpload;
-window.cancelImageUpload = cancelImageUpload;
-window.viewImage = viewImage;
-window.showRegister = showRegister;
-window.showLogin = showLogin;
