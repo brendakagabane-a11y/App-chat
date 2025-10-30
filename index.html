@@ -1,66 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Appwrite Chat</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/appwrite@11.0.0/dist/iife/sdk.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Chat — Supabase Realtime</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Auth Section -->
-        <div id="auth-section" class="auth-section">
-            <div class="auth-form">
-                <h2>Join the Chat</h2>
-                <div id="login-form">
-                    <input type="email" id="login-email" placeholder="Email" required>
-                    <input type="password" id="login-password" placeholder="Password" required>
-                    <button id="login-btn">Login</button>
-                    <p>Don't have an account? <a href="#" id="show-register">Register</a></p>
-                </div>
-                <div id="register-form" style="display: none;">
-                    <input type="text" id="register-name" placeholder="Username" required>
-                    <input type="email" id="register-email" placeholder="Email" required>
-                    <input type="password" id="register-password" placeholder="Password" required>
-                    <button id="register-btn">Register</button>
-                    <p>Already have an account? <a href="#" id="show-login">Login</a></p>
-                </div>
-            </div>
-        </div>
+  <div class="chat-container">
+    <header>
+      <h1>💬 App Chat</h1>
+      <p>Realtime messages powered by Supabase</p>
+    </header>
 
-        <!-- Chat Section -->
-        <div id="chat-section" class="chat-section" style="display: none;">
-            <div class="chat-header">
-                <h2>Chat Room</h2>
-                <div class="user-info">
-                    <span id="current-user">User</span>
-                    <button id="logout-btn">Logout</button>
-                </div>
-            </div>
+    <main>
+      <ul id="messages"></ul>
+    </main>
 
-            <div class="messages-container" id="messages-container">
-                <!-- Messages will appear here -->
-            </div>
+    <form id="messageForm" autocomplete="off">
+      <input type="text" id="usernameInput" placeholder="Your name" required>
+      <input type="text" id="messageInput" placeholder="Type a message..." required>
+      <button type="submit">Send</button>
+    </form>
+  </div>
 
-            <div class="message-input">
-                <input type="text" id="message-input" placeholder="Type your message...">
-                <div class="file-upload">
-                    <label for="image-upload" class="upload-btn">
-                        📎 Image
-                    </label>
-                    <input type="file" id="image-upload" accept="image/*" style="display: none;">
-                </div>
-                <button id="send-btn">Send</button>
-            </div>
-
-            <div id="image-preview" class="image-preview" style="display: none;">
-                <img id="preview-img" src="" alt="Preview">
-                <button id="cancel-upload">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="script.js"></script>
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="script.js"></script>
 </body>
 </html>
