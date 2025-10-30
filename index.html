@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Appwrite Chat</title>
     <link rel="stylesheet" href="style.css">
-    <!-- CORRECT Appwrite SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/appwrite@10.0.0/dist/iife/sdk.min.js"></script>
+    <!-- Try different Appwrite SDK version -->
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@11.0.0/dist/iife/sdk.js"></script>
 </head>
 <body>
     <div class="container">
@@ -17,15 +17,15 @@
                 <div id="login-form">
                     <input type="email" id="login-email" placeholder="Email" required>
                     <input type="password" id="login-password" placeholder="Password" required>
-                    <button onclick="login()">Login</button>
-                    <p>Don't have an account? <a href="#" onclick="showRegister()">Register</a></p>
+                    <button id="login-btn">Login</button>
+                    <p>Don't have an account? <a href="#" id="show-register">Register</a></p>
                 </div>
                 <div id="register-form" style="display: none;">
                     <input type="text" id="register-name" placeholder="Username" required>
                     <input type="email" id="register-email" placeholder="Email" required>
                     <input type="password" id="register-password" placeholder="Password" required>
-                    <button onclick="register()">Register</button>
-                    <p>Already have an account? <a href="#" onclick="showLogin()">Login</a></p>
+                    <button id="register-btn">Register</button>
+                    <p>Already have an account? <a href="#" id="show-login">Login</a></p>
                 </div>
             </div>
         </div>
@@ -36,7 +36,7 @@
                 <h2>Chat Room</h2>
                 <div class="user-info">
                     <span id="current-user">User</span>
-                    <button onclick="logout()">Logout</button>
+                    <button id="logout-btn">Logout</button>
                 </div>
             </div>
 
@@ -45,26 +45,23 @@
             </div>
 
             <div class="message-input">
-                <input type="text" id="message-input" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
-                
+                <input type="text" id="message-input" placeholder="Type your message...">
                 <div class="file-upload">
                     <label for="image-upload" class="upload-btn">
                         📎 Image
                     </label>
-                    <input type="file" id="image-upload" accept="image/*" style="display: none;" onchange="handleImageUpload(this.files[0])">
+                    <input type="file" id="image-upload" accept="image/*" style="display: none;">
                 </div>
-                
-                <button onclick="sendMessage()">Send</button>
+                <button id="send-btn">Send</button>
             </div>
 
-            <!-- Preview for image before sending -->
             <div id="image-preview" class="image-preview" style="display: none;">
                 <img id="preview-img" src="" alt="Preview">
-                <button onclick="cancelImageUpload()">Cancel</button>
+                <button id="cancel-upload">Cancel</button>
             </div>
         </div>
     </div>
 
     <script src="script.js"></script>
 </body>
-</html>
+                </html>
